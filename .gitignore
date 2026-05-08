@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Node
+node_modules/
+.next/
+out/
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
