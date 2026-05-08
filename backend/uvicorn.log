@@ -1,0 +1,5 @@
+INFO:     127.0.0.1:58369 - "POST /api/ai/analyze HTTP/1.1" 200 OK
+  INFO:     127.0.0.1:52771 - "POST /api/ai/analyze HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52615 - "POST /api/ai/analyze HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:54937 - "POST /api/ai/analyze HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53944 - "POST /api/ai/analyze HTTP/1.1" 500 Internal Server Error

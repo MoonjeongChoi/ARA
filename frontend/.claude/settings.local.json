@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr /S /I \"입력 방식\" .)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\mchoi079\\\\Desktop\\\\Moonjeong\\\\과제\\\\ara\" -Recurse -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "Bash(npm run *)",
+      "Bash(.\\\\venv\\\\Scripts\\\\uvicorn main:app --reload --port 8000)",
+      "Bash(./venv/Scripts/uvicorn main:app --reload --port 8000)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(exit 0)",
+      "Bash(pip install *)",
+      "PowerShell(where.exe python 2>&1; where.exe python3 2>&1; where.exe pip3 2>&1; $env:PATH -split \";\" | Where-Object { $_ -match \"python|conda|venv\" })",
+      "PowerShell(Get-Process *)",
+      "PowerShell(netstat *)",
+      "PowerShell(Get-WmiObject *)",
+      "PowerShell(wmic process where \"ProcessId=28972\" get Name,ExecutablePath,CommandLine 2>&1)",
+      "PowerShell(& \"C:\\\\Users\\\\mchoi079\\\\Desktop\\\\Moonjeong\\\\과제\\\\ara\\\\backend\\\\venv\\\\Scripts\\\\python.exe\" -m pip install httpx pydantic-settings 2>&1)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(Start-Process -FilePath $venv -ArgumentList \"-m\", \"uvicorn\", \"main:app\", \"--reload\" -WorkingDirectory $backendDir -WindowStyle Minimized)",
+      "PowerShell($venv = \"C:\\\\Users\\\\mchoi079\\\\Desktop\\\\Moonjeong\\\\����\\\\ara\\\\backend\\\\venv\\\\Scripts\\\\python.exe\")",
+      "PowerShell($backendDir = \"C:\\\\Users\\\\mchoi079\\\\Desktop\\\\Moonjeong\\\\����\\\\ara\\\\backend\")",
+      "PowerShell(Start-Sleep -Seconds 2; Invoke-RestMethod -Uri \"http://localhost:8000/health\" -Method Get 2>&1)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/health\" -UseBasicParsing; $r.StatusCode; $r.Content } catch { $_.Exception.Message })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/docs\" -UseBasicParsing; \\($r.Content | Select-String \"/api/ai/analyze\"\\).Matches.Count; \"ai route found\" } catch { $_.Exception.Message })",
+      "Bash(gh auth *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(git pull *)",
+      "Bash(git checkout *)",
+      "Bash(git rebase *)"
+    ]
+  }
+}

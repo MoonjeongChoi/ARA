@@ -1,0 +1,85 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\mchoi079\\Desktop\\Moonjeong\\苞力\\ara\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [31244] using WatchFiles
+INFO:     Started server process [31544]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'routers\ai.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [31544]
+WARNING:  WatchFiles detected changes in 'routers\ai.py'. Reloading...
+INFO:     Started server process [20340]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [20340]
+INFO:     Started server process [27640]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+AI analyze failed: Unterminated string starting at: line 39 column 37 (char 4892)
+Traceback (most recent call last):
+  File "C:\Users\mchoi079\Desktop\Moonjeong\苞力\ara\backend\routers\ai.py", line 200, in analyze
+    result = await genai_client.complete_json(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\mchoi079\Desktop\Moonjeong\苞力\ara\backend\services\genai_client.py", line 84, in complete_json
+    return json.loads(cleaned)
+           ~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 39 column 37 (char 4892)
+AI analyze failed: Unterminated string starting at: line 45 column 39 (char 4953)
+Traceback (most recent call last):
+  File "C:\Users\mchoi079\Desktop\Moonjeong\苞力\ara\backend\routers\ai.py", line 200, in analyze
+    result = await genai_client.complete_json(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\mchoi079\Desktop\Moonjeong\苞力\ara\backend\services\genai_client.py", line 84, in complete_json
+    return json.loads(cleaned)
+           ~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 45 column 39 (char 4953)
+AI analyze failed: Unterminated string starting at: line 41 column 37 (char 4798)
+Traceback (most recent call last):
+  File "C:\Users\mchoi079\Desktop\Moonjeong\苞力\ara\backend\routers\ai.py", line 200, in analyze
+    result = await genai_client.complete_json(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\mchoi079\Desktop\Moonjeong\苞力\ara\backend\services\genai_client.py", line 84, in complete_json
+    return json.loads(cleaned)
+           ~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mchoi079\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 41 column 37 (char 4798)
