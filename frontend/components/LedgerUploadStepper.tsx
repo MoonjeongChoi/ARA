@@ -345,10 +345,10 @@ export default function LedgerUploadStepper({ account, project, onConfirm }: Pro
                     {sortedSummary.map((item, idx) => {
                       const isIndiv = matAmount === null || Math.abs(item.ending) >= matAmount
                       return (
-                        <tr key={idx} className={`${isIndiv ? '' : 'text-gray-400 italic'} hover:bg-gray-50/50`}>
+                        <tr key={idx} className={`${isIndiv ? '' : 'text-gray-400'} hover:bg-gray-50/50`}>
                           <td className="px-3 py-2 text-center">
                             {isIndiv
-                              ? <span className="text-xs bg-[#E6F1FB] text-blue-600 px-2 py-0.5 rounded-full font-medium">개별분석</span>
+                              ? <span className="text-xs bg-pwc-infoSoft text-blue-600 px-2 py-0.5 rounded-full font-medium">개별분석</span>
                               : <span className="text-xs text-gray-400">합산</span>}
                           </td>
                           <td className="px-3 py-2 text-gray-500">{item.code}</td>

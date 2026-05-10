@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Project } from '@/lib/types'
 import { generateId, formatAmountInput } from '@/lib/utils'
+import { Modal } from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 
 interface Props {
   onClose: () => void
@@ -60,16 +62,10 @@ export default function NewProjectModal({ onClose, onCreate }: Props) {
     'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pwc-red/20 focus:border-pwc-red transition-colors'
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="bg-pwc-dark px-6 py-4">
-          <h2 className="text-base font-bold text-white">새 프로젝트 생성</h2>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
+    <Modal onClose={onClose}>
+      <Modal.Header>새 프로젝트 생성</Modal.Header>
+      <form onSubmit={handleSubmit}>
+        <Modal.Body className="space-y-4 overflow-y-auto max-h-[80vh]">
           <div>
             <label className="block text-sm font-medium text-pwc-dark mb-1">
               회사명 <span className="text-pwc-red">*</span>
@@ -149,19 +145,12 @@ export default function NewProjectModal({ onClose, onCreate }: Props) {
               className={inputCls}
             />
           </div>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-              취소
-            </button>
-            <button type="submit"
-              className="flex-1 bg-pwc-red text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors">
-              프로젝트 생성
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
+          <Button type="submit" variant="primary" className="flex-1">프로젝트 생성</Button>
+        </Modal.Footer>
+      </form>
+    </Modal>
   )
 }

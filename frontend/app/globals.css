@@ -13,3 +13,16 @@
 html {
   -webkit-font-smoothing: antialiased;
 }
+
+:root {
+  --pwc-red:       #E0301E;
+  --pwc-red-hover: #B52316;
+  --pwc-red-soft:  #FDECEA;
+  --pwc-text:      #252525;
+  --pwc-text-2:    #6B7280;
+  --pwc-text-3:    #9CA3AF;
+  --pwc-bg:        #FFFFFF;
+  --pwc-bg-soft:   #F9FAFB;
+  --pwc-bg-soft-2: #F5F5F5;
+  --pwc-info-soft: #E6F1FB;
+}

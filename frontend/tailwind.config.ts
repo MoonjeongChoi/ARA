@@ -10,8 +10,15 @@ const config: Config = {
     extend: {
       colors: {
         pwc: {
-          red: '#E0301E',
-          dark: '#252525',
+          red:        '#E0301E',
+          redHover:   '#B52316',
+          redSoft:    '#FDECEA',
+          dark:       '#252525',
+          neutral100: '#F5F5F5',
+          neutral200: '#F0F0F0',
+          neutral400: '#9CA3AF',
+          infoSoft:   '#E6F1FB',
+          info:       '#2563EB',
         },
       },
       fontFamily: {

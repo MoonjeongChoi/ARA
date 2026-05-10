@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Account, AccountStatus, Project } from '@/lib/types'
 import { downloadBlob, exportExcel } from '@/lib/api'
+import { Modal } from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 
 interface Props {
   project: Project
@@ -87,82 +89,67 @@ export default function ExportModal({ project, onClose }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        {/* Header */}
-        <div className="bg-pwc-dark px-6 py-4">
-          <h2 className="text-base font-bold text-white">Excel Export</h2>
+    <Modal onClose={onClose} maxWidth="md">
+      <Modal.Header>Excel Export</Modal.Header>
+      <Modal.Body className="space-y-3 max-h-[60vh] overflow-y-auto">
+        {/* Select all */}
+        <label className="flex items-center gap-2.5 cursor-pointer select-none pb-2 border-b border-gray-100">
+          <input
+            type="checkbox"
+            checked={allChecked}
+            ref={(el) => { if (el) el.indeterminate = someChecked }}
+            onChange={toggleAll}
+            className="w-4 h-4 accent-pwc-red rounded"
+          />
+          <span className="text-sm font-semibold text-pwc-dark">전체 선택</span>
+          <span className="text-xs text-gray-400 ml-auto">{selectedAccounts.length} / {project.accounts.length}</span>
+        </label>
+
+        {/* Account list */}
+        <div className="space-y-1.5">
+          {project.accounts.map((a) => (
+            <label key={a.id} className="flex items-center gap-2.5 cursor-pointer select-none group py-0.5">
+              <input
+                type="checkbox"
+                checked={selected.has(a.id)}
+                onChange={() => toggle(a.id)}
+                className="w-4 h-4 accent-pwc-red rounded shrink-0"
+              />
+              <span className="text-sm text-pwc-dark flex-1 truncate">{a.name}</span>
+              <span className="text-xs text-gray-400 shrink-0">{a.type}</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLOR[a.status]}`}>
+                {a.status}
+              </span>
+            </label>
+          ))}
         </div>
 
-        <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
-          {/* Select all */}
-          <label className="flex items-center gap-2.5 cursor-pointer select-none pb-2 border-b border-gray-100">
-            <input
-              type="checkbox"
-              checked={allChecked}
-              ref={(el) => { if (el) el.indeterminate = someChecked }}
-              onChange={toggleAll}
-              className="w-4 h-4 accent-pwc-red rounded"
-            />
-            <span className="text-sm font-semibold text-pwc-dark">전체 선택</span>
-            <span className="text-xs text-gray-400 ml-auto">{selectedAccounts.length} / {project.accounts.length}</span>
-          </label>
+        {/* Draft warning */}
+        {hasDraft && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+            ⚠ 미작성 계정이 포함되어 있습니다. 데이터 없이 빈 시트로 내보내집니다.
+          </p>
+        )}
 
-          {/* Account list */}
-          <div className="space-y-1.5">
-            {project.accounts.map((a) => (
-              <label key={a.id} className="flex items-center gap-2.5 cursor-pointer select-none group py-0.5">
-                <input
-                  type="checkbox"
-                  checked={selected.has(a.id)}
-                  onChange={() => toggle(a.id)}
-                  className="w-4 h-4 accent-pwc-red rounded shrink-0"
-                />
-                <span className="text-sm text-pwc-dark flex-1 truncate">{a.name}</span>
-                <span className="text-xs text-gray-400 shrink-0">{a.type}</span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLOR[a.status]}`}>
-                  {a.status}
-                </span>
-              </label>
-            ))}
-          </div>
-
-          {/* Draft warning */}
-          {hasDraft && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
-              ⚠ 미작성 계정이 포함되어 있습니다. 데이터 없이 빈 시트로 내보내집니다.
-            </p>
-          )}
-
-          {/* Filename preview */}
-          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
-            <p className="text-xs text-gray-400 mb-0.5">파일명</p>
-            <p className="text-sm text-pwc-dark font-medium break-all">{filename}</p>
-          </div>
-
-          {error && <p className="text-xs text-red-500">{error}</p>}
+        {/* Filename preview */}
+        <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+          <p className="text-xs text-gray-400 mb-0.5">파일명</p>
+          <p className="text-sm text-pwc-dark font-medium break-all">{filename}</p>
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={loading || selectedAccounts.length === 0}
-            className="flex-1 bg-pwc-red text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? '생성 중...' : 'Export'}
-          </button>
-        </div>
-      </div>
-    </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
+        <Button
+          variant="primary"
+          className="flex-1"
+          onClick={handleExport}
+          disabled={loading || selectedAccounts.length === 0}
+        >
+          {loading ? '생성 중...' : 'Export'}
+        </Button>
+      </Modal.Footer>
+    </Modal>
   )
 }

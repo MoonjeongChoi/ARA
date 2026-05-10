@@ -25,7 +25,7 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
     return () => clearTimeout(t)
   }, [onDone])
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-[#252525] text-white text-sm rounded-xl shadow-lg">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-pwc-dark text-white text-sm rounded-xl shadow-lg">
       {message}
     </div>
   )
@@ -541,7 +541,7 @@ export default function AccountWorksheetPage() {
                       const delta = getDelta(row)
                       const rate = getDeltaRate(row)
                       const flagged = isFlagged(row)
-                      const flagCls = flagged ? 'bg-[#FDECEA] text-[#E0301E] font-semibold' : ''
+                      const flagCls = flagged ? 'bg-pwc-redSoft text-pwc-red font-semibold' : ''
                       const isChecked = analyzeChecked.has(row.id)
 
                       return (
@@ -552,7 +552,7 @@ export default function AccountWorksheetPage() {
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={(e) => toggleChecked(row.id, e.target.checked)}
-                                className="w-4 h-4 cursor-pointer accent-[#E0301E] rounded"
+                                className="w-4 h-4 cursor-pointer accent-pwc-red rounded"
                               />
                               <span className={`text-xs ${isChecked ? 'text-pwc-red font-medium' : 'text-gray-400'}`}>
                                 분석
@@ -577,7 +577,7 @@ export default function AccountWorksheetPage() {
                                 className="w-full text-xs text-gray-600 bg-transparent border-b border-gray-200 focus:border-pwc-red focus:outline-none resize-none py-0.5 leading-relaxed placeholder:text-gray-300"
                               />
                             ) : (
-                              <span className="text-xs text-gray-300 italic">분석 제외</span>
+                              <span className="text-xs text-gray-300">분석 제외</span>
                             )}
                           </td>
                           <td className="px-4 py-2">
@@ -611,18 +611,18 @@ export default function AccountWorksheetPage() {
 
                     {/* Aggregate subtotal row */}
                     {aggregateRows.length > 0 && (
-                      <tr className="bg-[#f0f0f0] font-semibold text-gray-600 text-sm">
+                      <tr className="bg-pwc-neutral200 font-semibold text-gray-600 text-sm">
                         <td className="px-3 py-2 text-center">
                           <span className="text-xs text-gray-400">합산</span>
                         </td>
                         <td className="px-4 py-2">기타 (합산)</td>
-                        <td className="px-4 py-2 text-xs text-gray-400 italic">중요성 미만 항목 합계</td>
+                        <td className="px-4 py-2 text-xs text-gray-400">중요성 미만 항목 합계</td>
                         <td className="px-4 py-2 text-right">{subTotalPrior.toLocaleString('ko-KR')}</td>
                         <td className="px-4 py-2 text-right">{subTotalCurrent.toLocaleString('ko-KR')}</td>
-                        <td className={`px-4 py-2 text-right ${Math.abs(subRate ?? 0) > THRESHOLD ? 'text-[#E0301E]' : ''}`}>
+                        <td className={`px-4 py-2 text-right ${Math.abs(subRate ?? 0) > THRESHOLD ? 'text-pwc-red' : ''}`}>
                           {subDelta.toLocaleString('ko-KR')}
                         </td>
-                        <td className={`px-4 py-2 text-right ${Math.abs(subRate ?? 0) > THRESHOLD ? 'text-[#E0301E]' : ''}`}>
+                        <td className={`px-4 py-2 text-right ${Math.abs(subRate ?? 0) > THRESHOLD ? 'text-pwc-red' : ''}`}>
                           {subRate !== null ? `${(subRate * 100).toFixed(1)}%` : '—'}
                         </td>
                         <td />
@@ -633,7 +633,7 @@ export default function AccountWorksheetPage() {
                   {/* Grand total */}
                   {components.length > 0 && (
                     <tfoot>
-                      <tr className="bg-[#252525] text-white font-semibold text-sm">
+                      <tr className="bg-pwc-dark text-white font-semibold text-sm">
                         <td />
                         <td className="px-4 py-3">합계</td>
                         <td className="px-4 py-3" />
@@ -679,7 +679,7 @@ export default function AccountWorksheetPage() {
             </div>
 
             {/* Meta bar */}
-            <div className="bg-[#f5f5f5] rounded-lg px-4 py-2.5 flex items-center justify-between text-xs text-gray-400">
+            <div className="bg-pwc-neutral100 rounded-lg px-4 py-2.5 flex items-center justify-between text-xs text-gray-400">
               <span>
                 {lastSaved ? `분석 기간: ${lastSaved}` : '분석 기간 미지정'}
                 {matAmount ? ` · 중요성: ${matAmount.toLocaleString('ko-KR')}천원` : ''}
