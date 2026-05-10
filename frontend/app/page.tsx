@@ -4,21 +4,31 @@ import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import NewProjectModal from '@/components/NewProjectModal'
 import ProjectCard from '@/components/ProjectCard'
-import { storage } from '@/lib/storage'
+import { StorageQuotaError, storage } from '@/lib/storage'
 import { Project } from '@/lib/types'
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     setProjects(storage.getProjects())
   }, [])
 
   function handleCreate(project: Project) {
-    storage.saveProject(project)
-    setProjects(storage.getProjects())
-    setShowModal(false)
+    try {
+      storage.saveProject(project)
+      setProjects(storage.getProjects())
+      setShowModal(false)
+      if (storage.isNearQuota()) {
+        setToast('저장 공간이 4MB를 초과했습니다. 불필요한 프로젝트를 삭제하세요.')
+      }
+    } catch (e) {
+      if (e instanceof StorageQuotaError) {
+        setToast(e.message)
+      }
+    }
   }
 
   function handleDelete(id: string) {
@@ -86,6 +96,12 @@ export default function Home() {
 
       {showModal && (
         <NewProjectModal onClose={() => setShowModal(false)} onCreate={handleCreate} />
+      )}
+      {toast && (
+        <div className="fixed bottom-4 right-4 bg-pwc-dark text-white px-4 py-3 rounded-lg text-sm shadow-lg z-50 flex items-center gap-3">
+          <span>{toast}</span>
+          <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white">×</button>
+        </div>
       )}
     </div>
   )

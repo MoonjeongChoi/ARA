@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { storage } from '@/lib/storage'
+import { StorageQuotaError, storage } from '@/lib/storage'
 import { Account, AccountStatus, AnalysisMode, InputMethod, Project } from '@/lib/types'
 import { fmtDate } from '@/lib/utils'
 import Header from '@/components/Header'
@@ -31,6 +31,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [quotaError, setQuotaError] = useState<string | null>(null)
 
   useEffect(() => {
     const p = storage.getProject(id)
@@ -43,17 +44,25 @@ export default function ProjectDetailPage() {
   function handleAddAccount(account: Account) {
     if (!project) return
     const updated: Project = { ...project, accounts: [...project.accounts, account] }
-    storage.saveProject(updated)
-    setProject(updated)
-    setShowModal(false)
+    try {
+      storage.saveProject(updated)
+      setProject(updated)
+      setShowModal(false)
+    } catch (e) {
+      if (e instanceof StorageQuotaError) setQuotaError(e.message)
+    }
   }
 
   function handleDeleteAccount(accountId: string) {
     if (!project) return
     if (!confirm('계정과목을 삭제하시겠습니까?')) return
     const updated: Project = { ...project, accounts: project.accounts.filter((a) => a.id !== accountId) }
-    storage.saveProject(updated)
-    setProject(updated)
+    try {
+      storage.saveProject(updated)
+      setProject(updated)
+    } catch (e) {
+      if (e instanceof StorageQuotaError) setQuotaError(e.message)
+    }
   }
 
   const completed = project.accounts.filter((a) => a.status === '완료').length
@@ -195,6 +204,12 @@ export default function ProjectDetailPage() {
           project={project}
           onClose={() => setShowExport(false)}
         />
+      )}
+      {quotaError && (
+        <div className="fixed bottom-4 right-4 bg-pwc-dark text-white px-4 py-3 rounded-lg text-sm shadow-lg z-50 flex items-center gap-3">
+          <span>{quotaError}</span>
+          <button onClick={() => setQuotaError(null)} className="text-gray-400 hover:text-white">×</button>
+        </div>
       )}
     </div>
   )

@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import uuid
 import zipfile
 import tempfile
@@ -10,16 +11,33 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
-# In-memory session store: session_id -> combined DataFrame
-_sessions: Dict[str, pd.DataFrame] = {}
+SESSION_TTL = 1800       # 30분 무사용 시 만료
+MAX_FILES_IN_ZIP = 100   # zip bomb 방어
+
+# In-memory session store: session_id -> (DataFrame, last_access_timestamp)
+_sessions: Dict[str, Tuple[pd.DataFrame, float]] = {}
+
+
+def _cleanup_expired_sessions() -> None:
+    now = time.time()
+    expired = [k for k, (_, ts) in _sessions.items() if now - ts > SESSION_TTL]
+    for k in expired:
+        del _sessions[k]
 
 
 def get_session(session_id: str) -> Optional[pd.DataFrame]:
-    return _sessions.get(session_id)
+    _cleanup_expired_sessions()
+    entry = _sessions.get(session_id)
+    if entry is None:
+        return None
+    df, _ = entry
+    _sessions[session_id] = (df, time.time())  # TTL 갱신
+    return df
 
 
 def store_session(session_id: str, df: pd.DataFrame) -> None:
-    _sessions[session_id] = df
+    _cleanup_expired_sessions()
+    _sessions[session_id] = (df, time.time())
 
 
 def detect_date_from_filename(filename: str) -> Optional[str]:
@@ -149,16 +167,20 @@ def process_zip(zip_content: bytes) -> Dict[str, Any]:
 
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
-                for entry in zf.namelist():
-                    name = Path(entry).name
+                eligible = [
+                    e for e in zf.namelist()
                     if (
-                        Path(name).suffix.lower() in valid_exts
-                        and not name.startswith("~$")
-                        and not name.startswith(".")
-                        and "__MACOSX" not in entry
-                        and name  # exclude directory entries
-                    ):
-                        zf.extract(entry, extract_dir)
+                        Path(Path(e).name).suffix.lower() in valid_exts
+                        and not Path(e).name.startswith("~$")
+                        and not Path(e).name.startswith(".")
+                        and "__MACOSX" not in e
+                        and Path(e).name
+                    )
+                ]
+                if len(eligible) > MAX_FILES_IN_ZIP:
+                    raise ValueError(f"ZIP 내 파일이 너무 많습니다 (최대 {MAX_FILES_IN_ZIP}개).")
+                for entry in eligible:
+                    zf.extract(entry, extract_dir)
         except zipfile.BadZipFile:
             raise ValueError("올바른 ZIP 파일이 아닙니다.")
 

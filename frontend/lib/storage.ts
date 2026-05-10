@@ -1,6 +1,7 @@
 import { Project } from './types'
 
 const STORAGE_KEY = 'ara_projects'
+const STORAGE_WARN_BYTES = 4 * 1024 * 1024  // 4MB 초과 시 경고
 
 export class StorageQuotaError extends Error {
   constructor() {
@@ -15,6 +16,14 @@ function stripVolatile(projects: Project[]): Project[] {
     ...p,
     accounts: p.accounts.map(({ journalByVendor: _omit, ...rest }) => rest),
   }))
+}
+
+function getStorageBytes(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) ?? ''
+    return new Blob([raw]).size
+  } catch { return 0 }
 }
 
 function load(): Project[] {
@@ -60,5 +69,13 @@ export const storage = {
 
   deleteProject(id: string): void {
     persist(load().filter((p) => p.id !== id))
+  },
+
+  getUsedBytes(): number {
+    return getStorageBytes()
+  },
+
+  isNearQuota(): boolean {
+    return getStorageBytes() > STORAGE_WARN_BYTES
   },
 }

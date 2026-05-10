@@ -148,7 +148,7 @@ async def analyze(req: AnalyzeRequest):
             return result
         except Exception as e:
             logger.error("AI analyze (instruction) failed: %s", e, exc_info=True)
-            raise HTTPException(status_code=500, detail=f"AI 분석 실패: {e}")
+            raise HTTPException(status_code=500, detail="AI 분석 중 오류가 발생했습니다.")
 
     # ── Normal mode: two parallel calls ────────────────────────────────────
     mode_label = "잔액 자동 필터" if req.analysisMode == "auto_filter" else "구성요소 직접 정의"
@@ -250,4 +250,4 @@ async def analyze(req: AnalyzeRequest):
         }
     except Exception as e:
         logger.error("AI analyze failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"AI 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail="AI 분석 중 오류가 발생했습니다.")
