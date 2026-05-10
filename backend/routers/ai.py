@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel
 
+from services.anomaly import detect_outliers
 from services.genai_client import genai_client, settings
 
 logger = logging.getLogger(__name__)
@@ -178,6 +179,7 @@ async def analyze(req: AnalyzeRequest):
     )
 
     reasons_blocks = []
+    total_outlier_count = 0
     for c in checked:
         delta, rate = _delta_rate(c.priorAmount, c.currentAmount)
         entries = req.journalByVendor.get(c.name, []) if c.isIndividual else []
@@ -189,10 +191,25 @@ async def analyze(req: AnalyzeRequest):
                 for i, e in enumerate(top3)
             )
             journal_part = f"\n  주요 분개 (상위 3건):\n{lines}"
+
+        outlier_part = ""
+        if entries:
+            outliers = detect_outliers(entries)
+            if outliers:
+                total_outlier_count += len(outliers)
+                ex = outliers[0]
+                outlier_part = (
+                    f"\n  통계적 이상치 (|z|>2): {len(outliers)}건. "
+                    f"예: {ex.get('description') or '(적요 없음)'} / "
+                    f"{_fmt(ex.get('amount'))}천원 (z={ex.get('z_score', '?')})"
+                )
+
         reasons_blocks.append(
-            f"- {c.name}: 전기 {_fmt(c.priorAmount)} → 당기 {_fmt(c.currentAmount)}, 증감 {_fmt(delta)}천원 ({rate}){journal_part}"
+            f"- {c.name}: 전기 {_fmt(c.priorAmount)} → 당기 {_fmt(c.currentAmount)}, "
+            f"증감 {_fmt(delta)}천원 ({rate}){journal_part}{outlier_part}"
         )
 
+    logger.info("AI analyze outlier_count=%d", total_outlier_count)
     reasons_data = "\n".join(reasons_blocks) if reasons_blocks else "(분석 대상 없음)"
 
     reasons_prompt = _render(

@@ -6,11 +6,26 @@ import Link from 'next/link'
 import { StorageQuotaError, storage } from '@/lib/storage'
 import { Account, AccountStatus, ComponentItem, ExtraFileData, JournalEntry, Project } from '@/lib/types'
 import { fmtDate, generateId } from '@/lib/utils'
+import { computeRiskScore, RiskLevel } from '@/lib/risk'
 import { downloadBlob, exportExcel } from '@/lib/api'
 import Header from '@/components/Header'
 import LedgerUploadStepper from '@/components/LedgerUploadStepper'
+import JournalDrawer from '@/components/JournalDrawer'
+import dynamic from 'next/dynamic'
+
+const ParetoChart = dynamic(() => import('@/components/charts/ParetoChart'), { ssr: false })
 
 const THRESHOLD = 0.1
+
+const RISK_COLOR: Record<RiskLevel, string> = {
+  low:      'bg-gray-100 text-gray-500',
+  medium:   'bg-yellow-50 text-yellow-700',
+  high:     'bg-orange-50 text-orange-600',
+  critical: 'bg-pwc-redSoft text-pwc-red',
+}
+const RISK_LABEL: Record<RiskLevel, string> = {
+  low: 'L', medium: 'M', high: 'H', critical: '!'
+}
 
 const STATUS_OPTIONS: AccountStatus[] = ['미작성', '작성중', '완료']
 const STATUS_COLOR: Record<AccountStatus, string> = {
@@ -97,13 +112,31 @@ export default function AccountWorksheetPage() {
   // AI state
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
+  const [aiStep, setAiStep] = useState<'' | '요약' | '사유'>('')
 
   // Export state
   const [exporting, setExporting] = useState(false)
 
-  // Auto-save
+  // Phase 8: drill-down journal drawer + pareto toggle
+  const [drawerVendor, setDrawerVendor] = useState<string | null>(null)
+  const [showPareto, setShowPareto] = useState(false)
+
+  // Auto-save (silent) + last-saved display
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [lastSavedDisplay, setLastSavedDisplay] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+
+  useEffect(() => {
+    function update() {
+      if (!lastSavedAt) { setLastSavedDisplay(null); return }
+      const elapsed = Math.round((Date.now() - lastSavedAt) / 1000)
+      setLastSavedDisplay(elapsed < 10 ? '방금 저장' : `${elapsed}초 전 저장`)
+    }
+    update()
+    const t = setInterval(update, 5000)
+    return () => clearInterval(t)
+  }, [lastSavedAt])
 
   useEffect(() => {
     const p = storage.getProject(id)
@@ -155,7 +188,7 @@ export default function AccountWorksheetPage() {
         auditorMemo: nextMemo,
         status: nextStatus,
       })
-      setToast('자동 저장되었습니다')
+      setLastSavedAt(Date.now())
     }, 500)
   }
 
@@ -274,7 +307,9 @@ export default function AccountWorksheetPage() {
     const isInstructionMode = account.analysisMode === 'manual_define' && !!account.auditorInstruction
     if (!isInstructionMode && components.length === 0) return
     setAiLoading(true)
+    setAiStep('요약')
     setAiError('')
+    const stepTimer = setTimeout(() => setAiStep('사유'), 3000)
     try {
       const matAmount = account.materialityAmount ?? (project.materialityAmount > 0 ? project.materialityAmount : null)
       const res = await fetch('/api/ai/analyze', {
@@ -333,6 +368,8 @@ export default function AccountWorksheetPage() {
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'AI 분석 중 오류가 발생했습니다.')
     } finally {
+      clearTimeout(stepTimer)
+      setAiStep('')
       setAiLoading(false)
     }
   }
@@ -358,6 +395,7 @@ export default function AccountWorksheetPage() {
   const lastSaved = account.analysisPeriod
     ? `${fmtDate(account.analysisPeriod.start)} ~ ${fmtDate(account.analysisPeriod.end)}`
     : null
+
 
   const checkedCount = components.filter((c) => analyzeChecked.has(c.id)).length
 
@@ -441,7 +479,7 @@ export default function AccountWorksheetPage() {
                       d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 )}
-                AI 사유 생성
+                {aiLoading ? `${aiStep} 생성 중...` : 'AI 사유 생성'}
               </button>
             </div>
           </div>
@@ -468,6 +506,24 @@ export default function AccountWorksheetPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
                 <p className="text-xs font-semibold text-amber-700 mb-1">감사인 분석 지시</p>
                 <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">{account.auditorInstruction}</p>
+              </div>
+            )}
+
+            {/* Pareto Chart (collapsible) */}
+            {components.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4 overflow-hidden">
+                <button
+                  onClick={() => setShowPareto((v) => !v)}
+                  className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold text-pwc-dark hover:bg-gray-50 transition-colors"
+                >
+                  <span>잔액 분포 (파레토 차트)</span>
+                  <span className="text-gray-400 text-xs font-normal">{showPareto ? '접기 ▲' : '펼치기 ▼'}</span>
+                </button>
+                {showPareto && (
+                  <div className="px-5 pb-4">
+                    <ParetoChart components={components} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -523,6 +579,7 @@ export default function AccountWorksheetPage() {
                       <th className="px-4 py-3 font-semibold text-right w-28">당기</th>
                       <th className="px-4 py-3 font-semibold text-right w-28">증감액</th>
                       <th className="px-4 py-3 font-semibold text-right w-20">증감률</th>
+                      <th className="px-3 py-3 font-semibold text-center w-16">위험도</th>
                       <th className="w-8" />
                     </tr>
                   </thead>
@@ -530,7 +587,7 @@ export default function AccountWorksheetPage() {
                   <tbody className="divide-y divide-gray-50">
                     {components.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">
+                        <td colSpan={9} className="px-4 py-8 text-center text-gray-400 text-sm">
                           구성요소가 없습니다. 아래 + 행 추가 버튼을 눌러 시작하세요.
                         </td>
                       </tr>
@@ -543,6 +600,8 @@ export default function AccountWorksheetPage() {
                       const flagged = isFlagged(row)
                       const flagCls = flagged ? 'bg-pwc-redSoft text-pwc-red font-semibold' : ''
                       const isChecked = analyzeChecked.has(row.id)
+                      const risk = computeRiskScore(row, totalCurrent, matAmount)
+                      const journalCount = account.journalByVendor?.[row.name]?.length ?? 0
 
                       return (
                         <tr key={row.id} className={`hover:bg-gray-50/50 ${isChecked ? '' : 'opacity-70'}`}>
@@ -566,6 +625,14 @@ export default function AccountWorksheetPage() {
                               className="w-full bg-transparent border-b border-gray-200 focus:border-pwc-red focus:outline-none py-0.5 text-sm"
                               placeholder="항목명"
                             />
+                            {journalCount > 0 && (
+                              <button
+                                onClick={() => setDrawerVendor(row.name)}
+                                className="text-xs text-pwc-red hover:underline mt-0.5 block"
+                              >
+                                보기 ({journalCount})
+                              </button>
+                            )}
                           </td>
                           <td className="px-4 py-2 min-w-[180px]">
                             {isChecked ? (
@@ -593,6 +660,14 @@ export default function AccountWorksheetPage() {
                             {rate !== null
                               ? `${(rate * 100).toFixed(1)}%`
                               : row.priorAmount === 0 ? '신규' : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span
+                              title={`위험도: ${risk.level} (${risk.score}점)`}
+                              className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${RISK_COLOR[risk.level]}`}
+                            >
+                              {RISK_LABEL[risk.level]}
+                            </span>
                           </td>
                           <td className="px-2 py-2 text-center">
                             <button
@@ -626,6 +701,7 @@ export default function AccountWorksheetPage() {
                           {subRate !== null ? `${(subRate * 100).toFixed(1)}%` : '—'}
                         </td>
                         <td />
+                        <td />
                       </tr>
                     )}
                   </tbody>
@@ -643,6 +719,7 @@ export default function AccountWorksheetPage() {
                         <td className="px-4 py-3 text-right">
                           {totalRate !== null ? `${(totalRate * 100).toFixed(1)}%` : '—'}
                         </td>
+                        <td />
                         <td />
                       </tr>
                     </tfoot>
@@ -684,12 +761,24 @@ export default function AccountWorksheetPage() {
                 {lastSaved ? `분석 기간: ${lastSaved}` : '분석 기간 미지정'}
                 {matAmount ? ` · 중요성: ${matAmount.toLocaleString('ko-KR')}천원` : ''}
               </span>
-              <span>{project.companyName} · {project.fiscalYear}년도</span>
+              <span className="flex items-center gap-3">
+                {lastSavedDisplay && (
+                  <span className="text-gray-400">{lastSavedDisplay}</span>
+                )}
+                <span>{project.companyName} · {project.fiscalYear}년도</span>
+              </span>
             </div>
           </>
         )}
       </main>
 
+      {drawerVendor !== null && account && (
+        <JournalDrawer
+          vendor={drawerVendor}
+          entries={account.journalByVendor?.[drawerVendor] ?? []}
+          onClose={() => setDrawerVendor(null)}
+        />
+      )}
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
     </div>
   )
