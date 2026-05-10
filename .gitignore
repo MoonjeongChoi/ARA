@@ -2,3 +2,10 @@
 .env
 .env.local
 .env.*.local
+
+# 테스트용 회계 데이터 — 민감 정보 실수 push 방지
+*.xlsx
+*.xlsb
+*.xls
+*.zip
+samples/private/

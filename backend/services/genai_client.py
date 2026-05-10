@@ -92,6 +92,78 @@ class GenAIClient:
         await self.client.aclose()
 
 
+class MockGenAIClient:
+    """API 키가 없거나 사외 환경에서 동작하는 mock 응답 클라이언트."""
+
+    model = "mock"
+
+    async def complete(self, system_prompt: str, user_prompt: str, **_) -> str:
+        return '{"summary": "(mock) GenAI Gateway 호출이 비활성화된 환경임.", "components": []}'
+
+    async def complete_json(self, system_prompt: str, user_prompt: str, **_) -> dict:
+        names = _extract_component_names(user_prompt)
+        is_instruction = "감사인 분석 지시" in user_prompt
+        is_reasons_only = "분석 대상 구성요소 (단위: 천원)" in user_prompt and "전체 합계" not in user_prompt
+        is_summary_only = "전체 합계" in user_prompt and "분석 대상 구성요소 개요" in user_prompt
+
+        if is_instruction:
+            sample = names or ["샘플 구성요소 A", "샘플 구성요소 B"]
+            return {
+                "summary": "(mock) 감사인 지시에 기반한 분석적 절차 요약임.",
+                "components": [
+                    {"name": n, "beginning": 1000, "ending": 1100 + i * 50,
+                     "reason": f"(mock) {n}의 증감은 추가 검토가 필요함."}
+                    for i, n in enumerate(sample)
+                ],
+            }
+        if is_summary_only:
+            return {"summary": "(mock) 전체 합계 기준 분석적 절차 요약임."}
+        if is_reasons_only:
+            return {
+                "components": [
+                    {"name": n, "reason": f"(mock) {n}의 증감 사유는 추가 자료 확인이 필요함."}
+                    for n in (names or ["(mock 대상)"])
+                ],
+            }
+        return {"summary": "(mock) 응답임.", "components": []}
+
+    async def close(self):
+        return None
+
+
+def _extract_component_names(user_prompt: str) -> list[str]:
+    """프롬프트의 '- 이름: 전기 ...' 또는 '| 이름 | ...' 패턴에서 구성요소 이름 추출."""
+    names: list[str] = []
+    for line in user_prompt.splitlines():
+        m = re.match(r"^-\s+([^:]+):\s+전기", line.strip())
+        if m:
+            names.append(m.group(1).strip())
+            continue
+        if line.strip().startswith("|") and "|" in line[1:]:
+            parts = [p.strip() for p in line.strip().strip("|").split("|")]
+            if len(parts) >= 2 and parts[0] not in ("구성요소", "(없음)") and not parts[0].startswith("---"):
+                if not parts[0].isdigit():
+                    names.append(parts[0])
+    seen: set[str] = set()
+    unique: list[str] = []
+    for n in names:
+        if n and n not in seen:
+            seen.add(n)
+            unique.append(n)
+    return unique[:10]
+
+
+def _build_client():
+    if not settings.GENAI_API_KEY:
+        logger.warning("PwC_LLM_API_KEY 가 비어 있어 mock 모드로 동작함.")
+        return MockGenAIClient()
+    return GenAIClient(
+        base_url=settings.GENAI_BASE_URL,
+        api_key=settings.GENAI_API_KEY,
+        model=settings.GENAI_MODEL,
+    )
+
+
 def _extract_json(raw: str) -> str:
     text = raw.strip()
     if "```" in text:
@@ -129,9 +201,4 @@ def _extract_json(raw: str) -> str:
     return text[first_brace:]
 
 
-# 싱글톤 인스턴스
-genai_client = GenAIClient(
-    base_url=settings.GENAI_BASE_URL,
-    api_key=settings.GENAI_API_KEY,
-    model=settings.GENAI_MODEL,
-)
+genai_client = _build_client()

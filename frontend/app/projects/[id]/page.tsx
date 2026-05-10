@@ -16,7 +16,6 @@ const MODE_LABEL: Record<AnalysisMode, string> = {
 }
 
 const METHOD_LABEL: Record<InputMethod, string> = {
-  manual: '수동 입력',
   zip: 'xlsx / xls / xlsb / zip',
 }
 

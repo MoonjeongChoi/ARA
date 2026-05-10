@@ -277,12 +277,6 @@ export default function AddAccountModal({ project, onClose, onAdd }: Props) {
                 </div>
               )}
 
-              {/* Manual hint */}
-              {inputMethod === 'manual' && (
-                <p className="text-xs text-gray-400 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg">
-                  계정 생성 후 상세 화면에서 구성요소 행을 추가하여 전기/당기 금액을 입력하세요.
-                </p>
-              )}
             </div>
           )}
         </div>

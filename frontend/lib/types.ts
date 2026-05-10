@@ -1,6 +1,6 @@
 export type AccountType = '자산' | '부채' | '자본' | '수익' | '비용'
 export type AnalysisMode = 'auto_filter' | 'manual_define'
-export type InputMethod = 'manual' | 'zip'
+export type InputMethod = 'zip'
 export type AccountStatus = '미작성' | '작성중' | '완료'
 
 export interface AccountFilter {
