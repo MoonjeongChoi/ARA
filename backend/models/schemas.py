@@ -2,6 +2,38 @@ from pydantic import BaseModel
 from typing import Dict, List, Optional
 
 
+# ── Column mapping models ──────────────────────────────────────────────────────
+
+class LedgerColumnMapping(BaseModel):
+    """분개장 컬럼 인덱스 매핑 (자동 감지 실패 시 fallback)."""
+    key_a_idx:  int = 0   # 전표유형_계정번호
+    key_b_idx:  int = 1   # 세그_계정번호
+    desc_idx:   int = 7   # 적요
+    vendor_idx: int = 9   # 공급업체명
+    date_idx:   int = 11  # 전기일
+    amount_idx: int = 14  # 금액
+    type_idx:   int = 16  # 증감구분
+
+
+class SummaryColumnMapping(BaseModel):
+    """집계표 컬럼 인덱스 매핑 (자동 감지 실패 시 fallback)."""
+    code_idx:  int = 0  # 계정코드
+    name_idx:  int = 1  # 계정명
+    begin_idx: int = 2  # 기초잔액
+    inc_idx:   int = 3  # 증가
+    dec_idx:   int = 4  # 감소
+    end_idx:   int = 5  # 기말잔액
+
+
+class DetectedMovementColumns(BaseModel):
+    """분개장 파싱 시 자동 감지된 컬럼명."""
+    vendor: Optional[str] = None
+    amount: Optional[str] = None
+    date:   Optional[str] = None
+    desc:   Optional[str] = None
+    type:   Optional[str] = None
+
+
 class ParsedFile(BaseModel):
     filename: str
     detected_date: Optional[str] = None
@@ -95,6 +127,7 @@ class LedgerParseResponse(BaseModel):
     filtered_out_count: int
     parse_warnings: List[str]
     extra_files: List[ExtraFileData] = []
+    detected_movement_columns: Optional[DetectedMovementColumns] = None
 
 
 # ── Excel export ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Account, ComponentItem, ExtraFileData, JournalEntry, LedgerParseResult, LedgerSummaryItem, Project } from '@/lib/types'
+import { Account, ComponentItem, DetectedMovementColumns, ExtraFileData, JournalEntry, LedgerParseResult, LedgerSummaryItem, Project } from '@/lib/types'
 import { parseLedger } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 
@@ -27,6 +27,32 @@ const INSTRUCTION_EXAMPLES = [
   { label: '품목군별 분석', text: '품목군(완제품/반제품/원재료/저장품)별로 구분하여 증감을 분석해줘.' },
   { label: '제품/반제품/원재료', text: '재고자산을 제품, 반제품, 원재료, 저장품으로 구분하여 기초/기말 잔액과 증감 사유를 분석해줘.' },
 ]
+
+function DetectedColumnsPanel({ cols }: { cols: DetectedMovementColumns }) {
+  const entries = [
+    { label: '거래처', value: cols.vendor },
+    { label: '금액', value: cols.amount },
+    { label: '날짜', value: cols.date },
+    { label: '적요', value: cols.desc },
+    { label: '구분', value: cols.type },
+  ].filter((e) => e.value)
+  if (entries.length === 0) return null
+  return (
+    <details className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+      <summary className="cursor-pointer select-none font-medium text-gray-600">
+        감지된 분개장 컬럼 ({entries.length}개)
+      </summary>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+        {entries.map((e) => (
+          <span key={e.label}>
+            <span className="text-gray-400">{e.label}: </span>
+            <span className="font-medium text-gray-700">{e.value}</span>
+          </span>
+        ))}
+      </div>
+    </details>
+  )
+}
 
 function CheckIcon() {
   return (
@@ -319,6 +345,9 @@ export default function LedgerUploadStepper({ account, project, onConfirm }: Pro
             {result.parse_warnings.map((w, i) => (
               <p key={i} className="text-xs text-yellow-700 bg-yellow-50 px-3 py-1.5 rounded-lg">{w}</p>
             ))}
+            {result.detected_movement_columns && (
+              <DetectedColumnsPanel cols={result.detected_movement_columns} />
+            )}
           </div>
 
           {sortedSummary.length === 0 ? (

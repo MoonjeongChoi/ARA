@@ -33,6 +33,14 @@ export interface ExtraFileData {
   error_message?: string
 }
 
+export interface DetectedMovementColumns {
+  vendor: string | null
+  amount: string | null
+  date: string | null
+  desc: string | null
+  type: string | null
+}
+
 export interface LedgerParseResult {
   has_ledger: boolean
   has_journal: boolean
@@ -51,6 +59,7 @@ export interface LedgerParseResult {
   filtered_out_count: number
   parse_warnings: string[]
   extra_files: ExtraFileData[]
+  detected_movement_columns?: DetectedMovementColumns | null
 }
 
 export interface ComponentItem {

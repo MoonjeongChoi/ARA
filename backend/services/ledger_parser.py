@@ -8,10 +8,53 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from models.schemas import (
+    DetectedMovementColumns,
+    LedgerColumnMapping,
+    SummaryColumnMapping,
+)
+
+# ── Sheet detection keywords ───────────────────────────────────────────────────
 _SUMMARY_KW  = ["집계", "summary", "합계"]
 _MOVEMENT_KW = ["증감", "분개", "movement", "변동"]
 _BEGINNING_KW = ["기초", "기초잔액", "beginning"]
 _ENDING_KW    = ["기말", "기말잔액", "ending"]
+
+# ── Column detection keywords ──────────────────────────────────────────────────
+_HEADER_KW = ["거래처", "금액", "날짜", "적요", "계정", "전기일", "공급업체", "전표", "구분", "코드", "date", "amount"]
+_VENDOR_KW  = ["공급업체명", "공급업체", "거래처명", "vendor name", "거래처", "vendor", "업체명"]
+_AMOUNT_KW  = ["거래금액", "차변금액", "대변금액", "금액", "amount"]
+_DATE_KW    = ["전기일", "전표일", "거래일", "날짜", "일자", "date"]
+_DESC_KW    = ["전표적요", "거래내역", "적요", "description"]
+_TYPE_KW    = ["증감구분", "차대구분", "입출구분", "type"]
+_KEY_A_KW   = ["전표유형", "전표번호", "계정번호"]
+_KEY_B_KW   = ["세그먼트", "부서코드", "세그", "부서", "사업부"]
+_CODE_KW    = ["계정코드", "코드", "account code", "code"]
+_NAME_KW    = ["계정명", "품목명", "name"]
+_BEGIN_KW   = ["기초잔액", "전기말잔액", "기초", "beginning"]
+_INC_KW     = ["당기증가", "기중증가", "증가액", "취득액", "매입액", "증가", "increase"]
+_DEC_KW     = ["당기감소", "기중감소", "감소액", "처분액", "매각액", "감소", "decrease"]
+_END_KW     = ["기말잔액", "당기말잔액", "기말", "ending"]
+
+
+def _find_col(cols: List[str], keywords: List[str], default_idx: int) -> Optional[str]:
+    """컬럼명 키워드 탐색 (exact → substring 순서). 없으면 default_idx 위치 반환."""
+    lower_cols = [str(c).lower() for c in cols]
+    # Phase 1: exact match
+    for kw in keywords:
+        kl = kw.lower()
+        for col, lc in zip(cols, lower_cols):
+            if kl == lc:
+                return col
+    # Phase 2: substring match
+    for kw in keywords:
+        kl = kw.lower()
+        for col, lc in zip(cols, lower_cols):
+            if kl in lc:
+                return col
+    if default_idx < len(cols):
+        return cols[default_idx]
+    return None
 
 
 def _detect_sheets(sheet_names: List[str]) -> Dict[str, Optional[str]]:
@@ -38,6 +81,12 @@ def _detect_header_row(df_raw: pd.DataFrame, max_rows: int = 20) -> int:
         non_null = row.dropna()
         if len(non_null) == 0:
             continue
+        # Primary: Korean financial keyword matching (2+ hits = header)
+        row_strs = [str(v).strip().lower() for v in non_null]
+        kw_hits = sum(1 for v in row_strs if any(kw in v for kw in _HEADER_KW))
+        if kw_hits >= 2:
+            return i
+        # Fallback: first numeric-heavy row → previous row is header
         num_count = sum(
             1 for v in non_null
             if isinstance(v, (int, float)) and not isinstance(v, bool)
@@ -113,34 +162,44 @@ def _parse_summary(
     sheet_name: str,
     engine: str,
     filters: List[Dict[str, str]],
+    mapping: Optional[SummaryColumnMapping] = None,
 ) -> Tuple[List[Dict[str, Any]], int]:
+    if mapping is None:
+        mapping = SummaryColumnMapping()
+
     df = _read_sheet(xl, sheet_name, engine)
     if len(df.columns) < 6:
         raise ValueError(f"집계표 컬럼 수 부족: {len(df.columns)}개 (최소 6개 필요)")
     c = df.columns.tolist()
-    code_c, name_c, begin_c, inc_c, dec_c, end_c = c[0], c[1], c[2], c[3], c[4], c[5]
+
+    code_c  = _find_col(c, _CODE_KW,  mapping.code_idx)
+    name_c  = _find_col(c, _NAME_KW,  mapping.name_idx)
+    begin_c = _find_col(c, _BEGIN_KW, mapping.begin_idx)
+    inc_c   = _find_col(c, _INC_KW,   mapping.inc_idx)
+    dec_c   = _find_col(c, _DEC_KW,   mapping.dec_idx)
+    end_c   = _find_col(c, _END_KW,   mapping.end_idx)
 
     results: List[Dict[str, Any]] = []
     filtered = 0
     for _, row in df.iterrows():
-        name = row[name_c]
-        if pd.isna(name) or str(name).strip() == "":
+        name = row[name_c] if name_c else None
+        if name is None or pd.isna(name) or str(name).strip() == "":
             continue
         name_str = str(name).strip()
         if re.match(r"^(합계|소계|계|total|sum)\s*$", name_str, re.IGNORECASE):
             continue
-        code = row[code_c]
-        code_str = str(code).strip() if not pd.isna(code) else ""
+        code = row[code_c] if code_c else ""
+        code_str = str(code).strip() if code_c and not pd.isna(code) else ""
         if not _matches_filter(code_str, filters) and not _matches_filter(name_str, filters):
             filtered += 1
             continue
         results.append({
             "code": code_str,
             "name": name_str,
-            "beginning": _safe_float(row[begin_c]),
-            "increase":  _safe_float(row[inc_c]),
-            "decrease":  _safe_float(row[dec_c]),
-            "ending":    _safe_float(row[end_c]),
+            "beginning": _safe_float(row[begin_c]) if begin_c else 0.0,
+            "increase":  _safe_float(row[inc_c]) if inc_c else 0.0,
+            "decrease":  _safe_float(row[dec_c]) if dec_c else 0.0,
+            "ending":    _safe_float(row[end_c]) if end_c else 0.0,
         })
     return results, filtered
 
@@ -150,23 +209,29 @@ def _parse_movement(
     sheet_name: str,
     engine: str,
     filters: List[Dict[str, str]],
-) -> Tuple[Dict[str, List[Dict[str, Any]]], int]:
+    mapping: Optional[LedgerColumnMapping] = None,
+) -> Tuple[Dict[str, List[Dict[str, Any]]], int, Dict[str, Optional[str]]]:
+    if mapping is None:
+        mapping = LedgerColumnMapping()
+
     df = _read_sheet(xl, sheet_name, engine)
     cols = df.columns.tolist()
 
-    def _col(idx: int) -> Optional[str]:
-        return cols[idx] if idx < len(cols) else None
+    vendor_col = _find_col(cols, _VENDOR_KW,  mapping.vendor_idx)
+    amount_col = _find_col(cols, _AMOUNT_KW,  mapping.amount_idx)
+    date_col   = _find_col(cols, _DATE_KW,    mapping.date_idx)
+    desc_col   = _find_col(cols, _DESC_KW,    mapping.desc_idx)
+    type_col   = _find_col(cols, _TYPE_KW,    mapping.type_idx)
+    key_col_a  = _find_col(cols, _KEY_A_KW,   mapping.key_a_idx)
+    key_col_b  = _find_col(cols, _KEY_B_KW,   mapping.key_b_idx)
 
-    key_col_a  = _col(0)   # A: 전표유형_계정번호
-    key_col_b  = _col(1)   # B: 세그_계정번호
-    desc_col   = _col(7)   # H: 적요
-    vendor_col = _col(9)   # J: 공급업체명
-    date_col   = _col(11)  # L: 전기일
-    amount_col = _col(14)  # O: 금액
-    type_col   = _col(16)  # Q: 증감구분
+    detected: Dict[str, Optional[str]] = {
+        "vendor": vendor_col, "amount": amount_col,
+        "date": date_col, "desc": desc_col, "type": type_col,
+    }
 
     if vendor_col is None or amount_col is None:
-        return {}, 0
+        return {}, 0, detected
 
     result: Dict[str, List[Dict[str, Any]]] = {}
     filtered = 0
@@ -198,7 +263,7 @@ def _parse_movement(
             "date": date_str, "description": desc,
             "amount": amount, "type": movement_type,
         })
-    return result, filtered
+    return result, filtered, detected
 
 
 def _parse_extra_file(content: bytes, filename: str) -> Dict[str, Any]:
@@ -269,9 +334,11 @@ def _classify_files(
 def process_files(
     file_list: List[tuple],
     account_filters: Optional[List[Dict[str, str]]] = None,
+    col_mapping: Optional[LedgerColumnMapping] = None,
+    sum_mapping: Optional[SummaryColumnMapping] = None,
 ) -> Dict[str, Any]:
     lc, lf, jc, jf, extras = _classify_files(file_list)
-    return process_ledger(lc, lf, jc, jf, account_filters, extras)
+    return process_ledger(lc, lf, jc, jf, account_filters, extras, col_mapping, sum_mapping)
 
 
 def process_ledger(
@@ -281,6 +348,8 @@ def process_ledger(
     journal_filename: Optional[str],
     account_filters: Optional[List[Dict[str, str]]] = None,
     extra_file_contents: Optional[List[tuple]] = None,
+    col_mapping: Optional[LedgerColumnMapping] = None,
+    sum_mapping: Optional[SummaryColumnMapping] = None,
 ) -> Dict[str, Any]:
     filters = account_filters or []
     warnings: List[str] = []
@@ -293,6 +362,7 @@ def process_ledger(
         "summary": None, "movement": None,
         "beginning": None, "ending": None, "all_sheets": [],
     }
+    detected_mv_cols: Optional[Dict[str, Optional[str]]] = None
 
     # ── 명세서 파일 ────────────────────────────────────────────────────────────
     if ledger_content and ledger_filename:
@@ -306,17 +376,18 @@ def process_ledger(
 
             if d["summary"]:
                 try:
-                    summary, fo = _parse_summary(xl, d["summary"], engine, filters)
+                    summary, fo = _parse_summary(xl, d["summary"], engine, filters, sum_mapping)
                     filtered_out += fo
                 except Exception as e:
                     warnings.append(f"집계표 파싱 오류: {e}")
             else:
                 warnings.append("집계표 시트를 자동 감지하지 못했습니다.")
 
-            # 별도 분개장 없을 때 명세서의 증감 시트도 파싱
             if not journal_content and d["movement"]:
                 try:
-                    journal_by_vendor, fo = _parse_movement(xl, d["movement"], engine, filters)
+                    journal_by_vendor, fo, detected_mv_cols = _parse_movement(
+                        xl, d["movement"], engine, filters, col_mapping
+                    )
                     filtered_out += fo
                     has_journal = bool(journal_by_vendor)
                 except Exception as e:
@@ -337,7 +408,9 @@ def process_ledger(
             if movement_sheet:
                 detected["movement"] = movement_sheet
                 try:
-                    journal_by_vendor, fo = _parse_movement(xl, movement_sheet, engine, filters)
+                    journal_by_vendor, fo, detected_mv_cols = _parse_movement(
+                        xl, movement_sheet, engine, filters, col_mapping
+                    )
                     filtered_out += fo
                     has_journal = bool(journal_by_vendor)
                 except Exception as e:
@@ -376,4 +449,5 @@ def process_ledger(
         "filtered_out_count": filtered_out,
         "parse_warnings": warnings,
         "extra_files": extra_files,
+        "detected_movement_columns": detected_mv_cols,
     }

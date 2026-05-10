@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from models.schemas import (
-    AggregateRequest, AggregateResponse, LedgerParseResponse, ZipParseResponse,
+    AggregateRequest, AggregateResponse, LedgerColumnMapping, LedgerParseResponse, ZipParseResponse,
 )
 from services.file_parser import aggregate_data, process_zip
 from services.ledger_parser import process_files
@@ -44,6 +44,7 @@ async def parse_zip_upload(file: UploadFile = File(...)):
 async def parse_ledger_upload(
     files: List[UploadFile] = File(default=[]),
     account_filters: str = Form("[]"),
+    column_mapping: str = Form("{}"),
 ):
     if not any(f.filename for f in files):
         raise HTTPException(status_code=400, detail="파일을 하나 이상 업로드하세요.")
@@ -54,6 +55,12 @@ async def parse_ledger_upload(
             filters = []
     except (json.JSONDecodeError, TypeError):
         filters = []
+
+    try:
+        col_map_data = json.loads(column_mapping)
+        col_map = LedgerColumnMapping(**col_map_data) if col_map_data else None
+    except (json.JSONDecodeError, TypeError, ValueError):
+        col_map = None
 
     file_contents = []
     total_bytes = 0
@@ -73,7 +80,7 @@ async def parse_ledger_upload(
         raise HTTPException(status_code=400, detail="xlsx / xls / xlsb / zip 파일만 가능합니다.")
 
     try:
-        result = process_files(file_contents, filters)
+        result = process_files(file_contents, filters, col_map)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
