@@ -6,7 +6,11 @@ from typing import List
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from models.schemas import (
-    AggregateRequest, AggregateResponse, LedgerColumnMapping, LedgerParseResponse, ZipParseResponse,
+    AggregateRequest,
+    AggregateResponse,
+    LedgerColumnMapping,
+    LedgerParseResponse,
+    ZipParseResponse,
 )
 from services.file_parser import aggregate_data, process_zip
 from services.ledger_parser import process_files
@@ -34,7 +38,7 @@ async def parse_zip_upload(file: UploadFile = File(...)):
         result = process_zip(content)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("ZIP 파싱 실패")
         raise HTTPException(status_code=500, detail="파일 처리 중 오류가 발생했습니다.")
     return result
@@ -83,7 +87,7 @@ async def parse_ledger_upload(
         result = process_files(file_contents, filters, col_map)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("분개장 파싱 실패")
         raise HTTPException(status_code=500, detail="파일 처리 중 오류가 발생했습니다.")
 
@@ -104,7 +108,7 @@ async def aggregate(request: AggregateRequest):
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("집계 실패")
         raise HTTPException(status_code=500, detail="집계 중 오류가 발생했습니다.")
     return result

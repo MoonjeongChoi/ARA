@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 
 const maxWidthCls: Record<string, string> = {
   md: 'max-w-md',
@@ -17,6 +17,12 @@ interface SlotProps {
 }
 
 function ModalRoot({ onClose, children, maxWidth = 'lg' }: ModalProps) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"

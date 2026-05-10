@@ -1,12 +1,13 @@
 import json
+
 import pytest
+
 from services.genai_client import (
-    _extract_json,
+    MockGenAIClient,
     _check_noun_form,
     _extract_component_names,
-    MockGenAIClient,
+    _extract_json,
 )
-
 
 # ── _extract_json ──────────────────────────────────────────────────────────
 

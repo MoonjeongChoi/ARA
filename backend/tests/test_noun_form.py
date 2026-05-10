@@ -1,4 +1,5 @@
 import pytest
+
 from services.genai_client import _check_noun_form
 
 

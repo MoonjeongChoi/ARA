@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/export", tags=["export"])
 async def export_excel(request: ExportRequest) -> Response:
     try:
         content = build_excel(request.project, request.accounts)
-    except Exception as e:
+    except Exception:
         logger.exception("Excel 생성 실패")
         raise HTTPException(status_code=500, detail="Excel 파일 생성 중 오류가 발생했습니다.")
 
