@@ -324,7 +324,7 @@ export default function LedgerUploadStepper({ account, project, onConfirm }: Pro
           <div className="space-y-1">
             {result.has_ledger && result.detected_sheets.summary && (
               <p className="text-sm text-green-700 flex items-center gap-1.5">
-                <span className="font-bold">✓</span> 집계표 시트: <span className="font-semibold">"{result.detected_sheets.summary}"</span>
+                <span className="font-bold">✓</span> 집계표 시트: <span className="font-semibold">&quot;{result.detected_sheets.summary}&quot;</span>
               </p>
             )}
             {result.has_journal && (

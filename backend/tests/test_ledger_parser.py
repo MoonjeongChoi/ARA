@@ -1,20 +1,20 @@
-import io
 import os
 import tempfile
 
 import openpyxl
+import pandas as pd
 import pytest
 
+from models.schemas import LedgerColumnMapping
 from services.ledger_parser import (
     _detect_header_row,
+    _detect_sheets,
     _find_col,
+    _matches_filter,
     _parse_movement,
     _parse_summary,
+    _safe_float,
 )
-from models.schemas import LedgerColumnMapping, SummaryColumnMapping
-
-import pandas as pd
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -172,3 +172,69 @@ def test_parse_summary_with_filters():
     assert len(results) == 1
     assert results[0]["code"] == "1001"
     assert filtered == 1  # 매출채권 filtered out; 합계 is skipped by name pattern
+
+
+# ── _safe_float ───────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("value,expected", [
+    (1000,       1000.0),
+    (1000.5,     1000.5),
+    ("1500",     1500.0),
+    (None,       0.0),
+    (float("nan"), 0.0),
+    ("abc",      0.0),
+    (0,          0.0),
+])
+def test_safe_float(value, expected):
+    assert _safe_float(value) == pytest.approx(expected)
+
+
+# ── _matches_filter ───────────────────────────────────────────────────────────
+
+def test_matches_filter_no_filter():
+    assert _matches_filter("1001_거래처A", []) is True
+
+
+def test_matches_filter_code_exact():
+    filters = [{"code": "1001", "name": ""}]
+    assert _matches_filter("1001", filters) is True
+
+
+def test_matches_filter_code_prefix():
+    filters = [{"code": "10", "name": ""}]
+    assert _matches_filter("1001_거래처A", filters) is True
+
+
+def test_matches_filter_name_contains():
+    filters = [{"code": "", "name": "거래처A"}]
+    assert _matches_filter("국내 거래처A 사업부", filters) is True
+
+
+def test_matches_filter_no_match():
+    filters = [{"code": "9999", "name": "없는거래처"}]
+    assert _matches_filter("1001_거래처A", filters) is False
+
+
+# ── _detect_sheets ────────────────────────────────────────────────────────────
+
+def test_detect_sheets_keywords():
+    sheets = ["집계표", "증감분개", "기초잔액", "기말잔액", "기타"]
+    result = _detect_sheets(sheets)
+    assert result["summary"] == "집계표"
+    assert result["movement"] == "증감분개"
+    assert result["beginning"] == "기초잔액"
+    assert result["ending"] == "기말잔액"
+
+
+def test_detect_sheets_english():
+    sheets = ["summary_2024", "movement_data", "data"]
+    result = _detect_sheets(sheets)
+    assert result["summary"] == "summary_2024"
+    assert result["movement"] == "movement_data"
+
+
+def test_detect_sheets_no_match():
+    sheets = ["Sheet1", "Sheet2"]
+    result = _detect_sheets(sheets)
+    assert result["summary"] is None
+    assert result["movement"] is None

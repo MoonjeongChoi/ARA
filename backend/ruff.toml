@@ -1,0 +1,9 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top (load_dotenv must precede imports)
+]
