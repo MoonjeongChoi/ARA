@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from typing import Any
 import httpx
 from pydantic import Field
@@ -12,6 +13,9 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 2
 
+_BANNED_ENDINGS = re.compile(r"(?:했다|이다|된다|보인다|아니다|없다)\.")
+
+
 class Settings(BaseSettings):
     GENAI_BASE_URL: str = "https://genai-sharedservice-americas.pwcinternal.com"
     GENAI_API_KEY: str = Field(default="", validation_alias="PwC_LLM_API_KEY")
@@ -19,9 +23,16 @@ class Settings(BaseSettings):
         default="bedrock.anthropic.claude-sonnet-4-6",
         validation_alias="PwC_LLM_MODEL",
     )
+    GENAI_TEMPERATURE: float = Field(default=0.1, validation_alias="GENAI_TEMPERATURE")
+    GENAI_MAX_TOKENS: int = Field(default=16384, validation_alias="GENAI_MAX_TOKENS")
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 settings = Settings()
+
+
+def _check_noun_form(text: str) -> bool:
+    """명사형 종결어미 규칙 준수 여부 반환 (위반 시 False)."""
+    return not bool(_BANNED_ENDINGS.search(text))
 
 
 class GenAIClient:
@@ -34,6 +45,7 @@ class GenAIClient:
     async def complete(self, system_prompt: str, user_prompt: str, temperature: float = 0.1, max_tokens: int = 4096) -> str:
         last_error = None
         for attempt in range(MAX_RETRIES):
+            t0 = time.perf_counter()
             try:
                 response = await self.client.post(
                     f"{self.base_url}/v1/responses",
@@ -59,6 +71,14 @@ class GenAIClient:
                     text = data["choices"][0]["message"]["content"]
                 if not text or not text.strip():
                     raise ValueError("Empty response from GenAI Gateway")
+                usage = data.get("usage") or {}
+                logger.info(
+                    "GenAI call ok model=%s in_tokens=%s out_tokens=%s latency_ms=%.0f",
+                    self.model,
+                    usage.get("input_tokens"),
+                    usage.get("output_tokens"),
+                    (time.perf_counter() - t0) * 1000,
+                )
                 return text
             except Exception as e:
                 last_error = e
@@ -68,7 +88,7 @@ class GenAIClient:
         raise RuntimeError(f"GenAI request failed after {MAX_RETRIES} attempts: {last_error}")
 
     async def complete_json(self, system_prompt: str, user_prompt: str, **kwargs) -> dict:
-        for json_attempt in range(3):
+        for attempt in range(3):
             raw = await self.complete(
                 system_prompt=system_prompt + "\n\nIMPORTANT: Respond ONLY with valid JSON. Do NOT include any explanation or markdown formatting. Output must start with { and end with }.",
                 user_prompt=user_prompt,
@@ -76,17 +96,27 @@ class GenAIClient:
             )
             cleaned = _extract_json(raw)
             if not cleaned:
-                if json_attempt < 2:
-                    await asyncio.sleep(2 * (json_attempt + 1))
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
                     continue
                 raise json.JSONDecodeError("No JSON object found", raw, 0)
             try:
-                return json.loads(cleaned)
+                result = json.loads(cleaned)
             except json.JSONDecodeError:
-                if json_attempt < 2:
-                    await asyncio.sleep(2 * (json_attempt + 1))
-                else:
-                    raise
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                raise
+
+            summary = result.get("summary", "")
+            if summary and not _check_noun_form(summary):
+                logger.warning("명사형 종결어미 위반 감지 (attempt %d/3) — 재호출", attempt + 1)
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                logger.warning("명사형 종결어미 위반 — 마지막 시도에서도 위반, 원본 반환")
+            return result
+        raise RuntimeError("complete_json: 3회 재시도 모두 실패")
 
     async def close(self):
         await self.client.aclose()

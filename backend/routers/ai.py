@@ -1,25 +1,29 @@
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
+from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel
 
-from services.genai_client import genai_client
+from services.genai_client import genai_client, settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
-SYSTEM_PROMPT = """당신은 회계감사 전문가입니다.
+_PROMPTS_DIR = Path(__file__).parent.parent / "services" / "prompts"
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(_PROMPTS_DIR)),
+    autoescape=False,
+    keep_trailing_newline=True,
+)
+SYSTEM_PROMPT: str = (_PROMPTS_DIR / "system.md").read_text(encoding="utf-8")
 
-## 문체 규칙
-모든 문장은 반드시 명사형 종결어미로 끝낼 것. "~했다", "~이다", "~된다", "~보인다" 형태 사용 금지.
-대신 "~함", "~임", "~됨", "~으로 판단됨", "~으로 추정됨", "~에 기인함" 등을 사용할 것.
-예) "매출채권이 증가했다" → "매출채권이 증가함" / "신규 거래처가 추가되었다" → "신규 거래처가 추가됨"
-"""
 
-MAX_TOKENS = 16384
+def _render(template_name: str, **ctx) -> str:
+    return _jinja_env.get_template(template_name).render(**ctx)
 
 
 class AnalysisPeriod(BaseModel):
@@ -119,31 +123,23 @@ async def analyze(req: AnalyzeRequest):
         else:
             journal_block = ""
 
-        user_prompt = f"""아래 계정과목의 분석 구성요소를 생성하고 기초/기말잔액과 증감 분석 사유를 작성해 주세요.
-
-## 감사 정보
-- 계정과목: {req.accountName} ({req.accountType})
-- 분석 기간: {period_str}
-- 중요성 금액: {mat_str}
-
-## 감사인 분석 지시
-{req.auditorInstruction}
-{journal_block}{extra_files_section}
-## 요청 사항
-다음 JSON 형식으로만 응답하세요. 마크다운 코드블록 없이 순수 JSON만 출력하세요:
-{{
-  "summary": "감사인 지시 기반 분석적 절차 요약 (3~5문장, 주요 증감 원인, 위험 요소, 감사 의견)",
-  "components": [
-    {{ "name": "구성요소명", "beginning": 0, "ending": 0, "reason": "해당 구성요소의 증감 분석 사유 (최대 200자)" }}
-  ]
-}}"""
+        user_prompt = _render(
+            "analyze_instruction.md.j2",
+            account_name=req.accountName,
+            account_type=req.accountType,
+            period_str=period_str,
+            mat_str=mat_str,
+            auditor_instruction=req.auditorInstruction,
+            journal_block=journal_block,
+            extra_files_section=extra_files_section,
+        )
 
         try:
             result = await genai_client.complete_json(
                 system_prompt=SYSTEM_PROMPT,
                 user_prompt=user_prompt,
-                temperature=0.1,
-                max_tokens=MAX_TOKENS,
+                temperature=settings.GENAI_TEMPERATURE,
+                max_tokens=settings.GENAI_MAX_TOKENS,
             )
             return result
         except Exception as e:
@@ -154,45 +150,33 @@ async def analyze(req: AnalyzeRequest):
     mode_label = "잔액 자동 필터" if req.analysisMode == "auto_filter" else "구성요소 직접 정의"
     checked = [c for c in req.components if c.isChecked]
 
-    # Aggregate totals across ALL components
     total_prior = sum(c.priorAmount or 0 for c in req.components)
     total_current = sum(c.currentAmount or 0 for c in req.components)
     total_delta = total_current - total_prior
     total_rate = f"{total_delta / abs(total_prior) * 100:.1f}%" if total_prior != 0 else "신규"
 
-    # Checked items overview (for summary context)
     checked_rows = "\n".join(
         f"| {c.name} | {'개별' if c.isIndividual else '합산'} | {_fmt(c.priorAmount)} | {_fmt(c.currentAmount)} | {_fmt(_delta_rate(c.priorAmount, c.currentAmount)[0])} | {_delta_rate(c.priorAmount, c.currentAmount)[1]} |"
         for c in checked
     ) or "| (없음) | - | - | - | - | - |"
 
-    # ── Prompt 1: summary from aggregate totals ──
-    summary_prompt = f"""아래 계정과목의 전체 잔액 기준 분석적 절차 요약을 작성해 주세요.
+    summary_prompt = _render(
+        "analyze_summary.md.j2",
+        account_name=req.accountName,
+        account_type=req.accountType,
+        mode_label=mode_label,
+        period_str=period_str,
+        mat_str=mat_str,
+        component_count=len(req.components),
+        checked_count=len(checked),
+        total_prior=_fmt(total_prior),
+        total_current=_fmt(total_current),
+        total_delta=_fmt(total_delta),
+        total_rate=total_rate,
+        checked_rows=checked_rows,
+        extra_files_section=extra_files_section,
+    )
 
-## 감사 정보
-- 계정과목: {req.accountName} ({req.accountType})
-- 분석 모드: {mode_label}
-- 분석 기간: {period_str}
-- 중요성 금액: {mat_str}
-- 구성요소 수: {len(req.components)}개 (분석 대상: {len(checked)}개)
-
-## 전체 합계 (단위: 천원)
-| 전기 합계 | 당기 합계 | 증감액 | 증감률 |
-|---------|---------|--------|--------|
-| {_fmt(total_prior)} | {_fmt(total_current)} | {_fmt(total_delta)} | {total_rate} |
-
-## 분석 대상 구성요소 개요 (단위: 천원)
-| 구성요소 | 구분 | 전기 | 당기 | 증감액 | 증감률 |
-|---------|------|------|------|--------|--------|
-{checked_rows}
-{extra_files_section}
-## 요청 사항
-다음 JSON 형식으로만 응답하세요. 마크다운 코드블록 없이 순수 JSON만 출력하세요:
-{{
-  "summary": "계정과목 전체에 대한 분석적 절차 요약 (3~5문장, 주요 증감 원인, 위험 요소, 감사 의견)"
-}}"""
-
-    # ── Prompt 2: individual reasons for checked items only ──
     reasons_blocks = []
     for c in checked:
         delta, rate = _delta_rate(c.priorAmount, c.currentAmount)
@@ -211,37 +195,27 @@ async def analyze(req: AnalyzeRequest):
 
     reasons_data = "\n".join(reasons_blocks) if reasons_blocks else "(분석 대상 없음)"
 
-    reasons_prompt = f"""아래 계정과목의 구성요소별 증감 분석 사유를 작성해 주세요.
-
-## 감사 정보
-- 계정과목: {req.accountName} ({req.accountType})
-- 분석 기간: {period_str}
-
-## 분석 대상 구성요소 (단위: 천원)
-{reasons_data}
-
-## 요청 사항
-각 구성요소의 증감 원인을 1~2문장(최대 200자)으로 작성하세요.
-다음 JSON 형식으로만 응답하세요. 마크다운 코드블록 없이 순수 JSON만 출력하세요:
-{{
-  "components": [
-    {{ "name": "구성요소명", "reason": "증감 분석 사유 (최대 200자)" }}
-  ]
-}}"""
+    reasons_prompt = _render(
+        "analyze_reasons.md.j2",
+        account_name=req.accountName,
+        account_type=req.accountType,
+        period_str=period_str,
+        reasons_data=reasons_data,
+    )
 
     try:
         summary_result, reasons_result = await asyncio.gather(
             genai_client.complete_json(
                 system_prompt=SYSTEM_PROMPT,
                 user_prompt=summary_prompt,
-                temperature=0.1,
-                max_tokens=MAX_TOKENS,
+                temperature=settings.GENAI_TEMPERATURE,
+                max_tokens=settings.GENAI_MAX_TOKENS,
             ),
             genai_client.complete_json(
                 system_prompt=SYSTEM_PROMPT,
                 user_prompt=reasons_prompt,
-                temperature=0.1,
-                max_tokens=MAX_TOKENS,
+                temperature=settings.GENAI_TEMPERATURE,
+                max_tokens=settings.GENAI_MAX_TOKENS,
             ),
         )
         return {

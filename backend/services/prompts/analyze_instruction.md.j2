@@ -1,0 +1,18 @@
+아래 계정과목의 분석 구성요소를 생성하고 기초/기말잔액과 증감 분석 사유를 작성해 주세요.
+
+## 감사 정보
+- 계정과목: {{ account_name }} ({{ account_type }})
+- 분석 기간: {{ period_str }}
+- 중요성 금액: {{ mat_str }}
+
+## 감사인 분석 지시
+{{ auditor_instruction }}
+{{ journal_block }}{{ extra_files_section }}
+## 요청 사항
+다음 JSON 형식으로만 응답하세요. 마크다운 코드블록 없이 순수 JSON만 출력하세요:
+{
+  "summary": "감사인 지시 기반 분석적 절차 요약 (3~5문장, 주요 증감 원인, 위험 요소, 감사 의견)",
+  "components": [
+    { "name": "구성요소명", "beginning": 0, "ending": 0, "reason": "해당 구성요소의 증감 분석 사유 (최대 200자)" }
+  ]
+}
